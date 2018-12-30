@@ -1,10 +1,13 @@
 GCC=/usr/bin/gcc
 
-simplefs: shell.o fs.o disk.o
+simplefs: shell.o fs.o disk.o bitmap.o
 	$(GCC) shell.o fs.o disk.o -o simplefs
 
 shell.o: shell.c
 	$(GCC) -Wall shell.c -c -o shell.o -g
+
+bitmap.o: bitmap.c
+	$(GCC) -Wall bitmap.c -c -o bitmap.o -g
 
 fs.o: fs.c fs.h
 	$(GCC) -Wall fs.c -c -o fs.o -g
