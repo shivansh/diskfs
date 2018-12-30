@@ -1,4 +1,3 @@
-
 #include "fs.h"
 #include "disk.h"
 
@@ -13,6 +12,8 @@
 #define POINTERS_PER_INODE 5
 #define POINTERS_PER_BLOCK 1024
 #define PRINT_LIMIT 5
+
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
 
 struct fs_superblock {
     int magic;
@@ -35,7 +36,27 @@ union fs_block {
     char data[DISK_BLOCK_SIZE];
 };
 
-int fs_format() { return 0; }
+// fs_format creates a new filesystem on the disk, destroying any data already
+// present. It writes the superblock, allocates 10 percent of the total blocks
+// as inode blocks and marks them all as invalid.
+int fs_format() {
+    union fs_block block;
+    block.super.magic = FS_MAGIC;
+    block.super.nblocks = disk_size();
+    // Allocate 10 percent of the total number of disk blocks as inode blocks.
+    block.super.ninodeblocks = MAX(1, block.super.nblocks / 10);
+    block.super.ninodes = 0;
+    int blocknum = 0;
+    disk_write(blocknum++, block.data);
+    for (int i = 0; i < block.super.ninodes; ++i) {
+        union fs_block inode_block;
+        for (int j = 0; j < INODES_PER_BLOCK; ++j) {
+            inode_block.inode[j].isvalid = 0;
+        }
+        disk_write(blocknum++, inode_block.data);
+    }
+    return 0;  // TODO: should return -1 when invoked on a mounted filesystem
+}
 
 // fs_debug scans a mounted filesystem and reports how the inodes and blocks are
 // organised.
