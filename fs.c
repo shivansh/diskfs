@@ -1,4 +1,5 @@
 #include "fs.h"
+#include "bitmap.h"
 #include "disk.h"
 
 #include <errno.h>
@@ -12,8 +13,14 @@
 #define POINTERS_PER_INODE 5
 #define POINTERS_PER_BLOCK 1024
 #define PRINT_LIMIT 5
+#define MAX_BLOCKS 1024  // TODO: set a realistic limit
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
+
+// bitmap of free blocks -
+//     * a set bit represents a block in use
+//     * an unset bit represents a free block
+word_t bitmap[MAX_BLOCKS];
 
 struct fs_superblock {
     int magic;
@@ -55,6 +62,7 @@ int fs_format() {
         }
         disk_write(blocknum++, inode_block.data);
     }
+    // TODO: clear the in-memory bitmap (if already exists).
     return 0;  // TODO: should return -1 when invoked on a mounted filesystem
 }
 
@@ -116,7 +124,33 @@ void fs_debug() {
     }
 }
 
-int fs_mount() { return 0; }
+// fs_mount examines the disk for a filesystem. If one is present, it reads the
+// superblock and builds the free block bitmap.
+int fs_mount() {
+    // TODO: how to check if a filesystem is present, apart from verifying the
+    // magic bit in the superblock.
+
+    // Read the superblock.
+    union fs_block block;
+    int blocknum = 0;
+    disk_read(blocknum++, block.data);
+    if (block.super.magic != FS_MAGIC) {
+        return -1;
+    }
+    for (int i = 0; i < block.super.ninodeblocks; ++i) {
+        disk_read(blocknum++, block.data);
+        for (int j = 0; j < INODES_PER_BLOCK; ++j) {
+            if (block.inode[j].isvalid) {
+                for (int k = 0; k < POINTERS_PER_INODE; ++k) {
+                    if (block.inode[j].direct[k] != 0) {
+                        set_bit(bitmap, block.inode[j].direct[k]);
+                    }
+                }
+            }
+        }
+    }
+    return 0;
+}
 
 int fs_create() { return 0; }
 

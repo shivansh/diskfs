@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
             }
         } else if (!strcmp(cmd, "mount")) {
             if (args == 1) {
-                if (fs_mount()) {
+                if (fs_mount() == 0) {
                     printf("disk mounted.\n");
                 } else {
                     printf("mount failed!\n");
