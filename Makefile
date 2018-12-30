@@ -12,5 +12,8 @@ fs.o: fs.c fs.h
 disk.o: disk.c disk.h
 	$(GCC) -Wall disk.c -c -o disk.o -g
 
+run:
+	./simplefs images/image.200 200
+
 clean:
 	rm simplefs disk.o fs.o shell.o

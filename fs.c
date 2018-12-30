@@ -12,6 +12,7 @@
 #define INODES_PER_BLOCK 128
 #define POINTERS_PER_INODE 5
 #define POINTERS_PER_BLOCK 1024
+#define PRINT_LIMIT 5
 
 struct fs_superblock {
     int magic;
@@ -23,8 +24,8 @@ struct fs_superblock {
 struct fs_inode {
     int isvalid;
     int size;
-    int direct[POINTERS_PER_INODE];
-    int indirect;
+    int direct[POINTERS_PER_INODE];  // pointers in an indirect block
+    int indirect;                    // indirect block number
 };
 
 union fs_block {
@@ -36,15 +37,62 @@ union fs_block {
 
 int fs_format() { return 0; }
 
+// fs_debug scans a mounted filesystem and reports how the inodes and blocks are
+// organised.
 void fs_debug() {
     union fs_block block;
 
-    disk_read(0, block.data);
+    // Read the superblock.
+    int blocknum = 0;
+    disk_read(blocknum++, block.data);  // adjust block number for the next read
 
     printf("superblock:\n");
+    if (block.super.magic == FS_MAGIC) {
+        printf("    magic number is valid\n");
+    } else {
+        // TODO: handle error ; this should also be handled when mounting.
+    }
     printf("    %d blocks\n", block.super.nblocks);
     printf("    %d inode blocks\n", block.super.ninodeblocks);
     printf("    %d inodes\n", block.super.ninodes);
+
+    // Read the inodes within each inode block.
+    for (int i = 0; i < block.super.ninodeblocks; ++i) {
+        disk_read(blocknum++, block.data);
+        for (int j = 0; j < INODES_PER_BLOCK; ++j) {
+            if (block.inode[j].isvalid) {
+                printf("inode %d:\n", j);
+                printf("    size: %d bytes\n", block.inode[j].size);
+                printf("    direct blocks:");
+                for (int k = 0; k < POINTERS_PER_INODE; ++k) {
+                    if (block.inode[j].direct[k] == 0) {
+                        break;  // TODO: verify if the empty fields are nil
+                    } else {
+                        printf(" %d", block.inode[j].direct[k]);
+                    }
+                }
+                printf("\n");
+                if (block.inode[j].indirect != 0) {
+                    printf("    indirect block: %d\n", block.inode[j].indirect);
+                    // Read the indirect block.
+                    disk_read(block.inode[j].indirect, block.data);
+                    printf("    indirect data blocks:");
+                    // We only print the first PRINT_LIMIT indirect data blocks.
+                    for (int k = 0; k < POINTERS_PER_BLOCK; ++k) {
+                        if (k == PRINT_LIMIT) {
+                            printf(" ...");
+                            break;
+                        } else if (block.pointers[k] == 0) {
+                            break;
+                        } else {
+                            printf(" %d", block.pointers[k]);
+                        }
+                    }
+                    printf("\n");
+                }
+            }
+        }
+    }
 }
 
 int fs_mount() { return 0; }
